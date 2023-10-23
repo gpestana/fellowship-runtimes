@@ -27,8 +27,7 @@ use primitives::{
 	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
 	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LOWEST_PUBLIC_ID,
-	PARACHAIN_KEY_TYPE_ID,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
 	auctions, claims, crowdloan, impl_runtime_weights, impls::DealWithFees, paras_registrar,
@@ -629,6 +628,48 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type Score = sp_npos_elections::VoteWeight;
 }
 
+// Note: the `parameter_types!{ storage }` default values do not reflect on the runtime storage when
+// the runtime is upgraded. The defaults are *only* relevant before the first `set_storage()` call.
+// After that, the values in this configuration becomes a noop.
+parameter_types! {
+	storage MaxAnnualInflation: Perquintill = Perquintill::from_percent(10);
+	storage MinAnnualInflation: Perquintill = Perquintill::from_rational(25u64, 1000u64);
+	storage IdealStake: Perquintill = Perquintill::from_percent(50); // TODO: double-check this value.
+	storage IdealStakeFalloff: Perquintill = Perquintill::from_percent(5);
+}
+
+// TODO: move `runtime-common` to the fellowship runtimes and move this method there. Tracking
+// issue <https://github.com/polkadot-fellows/runtimes/issues/59>.
+fn era_payout(
+	total_staked: Balance,
+	total_stakable: Balance,
+	period_fraction: Perquintill,
+) -> (Balance, Balance) {
+	use pallet_staking_reward_fn::compute_inflation;
+	use sp_runtime::traits::Saturating;
+
+	let max_annual_inflation = MaxAnnualInflation::get();
+	let min_annual_inflation = MinAnnualInflation::get();
+	let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
+
+	let stake = Perquintill::from_rational(total_staked, total_stakable);
+	let adjustment = compute_inflation(stake, IdealStake::get(), IdealStakeFalloff::get());
+	let staking_inflation =
+		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
+
+	let max_payout = period_fraction * max_annual_inflation * total_stakable;
+	let staking_payout = (period_fraction * staking_inflation) * total_stakable;
+	let rest = max_payout.saturating_sub(staking_payout);
+
+	let other_issuance = total_stakable.saturating_sub(total_staked);
+	if total_staked > other_issuance {
+		let _cap_rest = Perquintill::from_rational(other_issuance, total_staked) * staking_payout;
+		// We don't do anything with this, but if we wanted to, we could introduce a cap on the
+		// treasury amount with: `rest = rest.min(cap_rest);`
+	}
+	(staking_payout, rest)
+}
+
 pub struct EraPayout;
 impl pallet_staking::EraPayout<Balance> for EraPayout {
 	fn era_payout(
@@ -636,23 +677,12 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		_total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
-		// all para-ids that are currently active.
-		let auctioned_slots = Paras::parachains()
-			.into_iter()
-			// all active para-ids that do not belong to a system or common good chain is the number
-			// of parachains that we should take into account for inflation.
-			.filter(|i| *i >= LOWEST_PUBLIC_ID)
-			.count() as u64;
-
-		const MAX_ANNUAL_INFLATION: Perquintill = Perquintill::from_percent(10);
 		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-		runtime_common::impls::era_payout(
+		era_payout(
 			total_staked,
 			Nis::issuance().other,
-			MAX_ANNUAL_INFLATION,
 			Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
-			auctioned_slots,
 		)
 	}
 }

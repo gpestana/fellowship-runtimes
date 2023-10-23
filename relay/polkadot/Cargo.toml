@@ -72,7 +72,6 @@ pallet-session = { default-features = false , version = "23.0.0" }
 frame-support = { default-features = false , version = "23.0.0" }
 pallet-staking = { default-features = false , version = "23.0.0" }
 pallet-staking-reward-fn = { default-features = false, version = "14.0.0" }
-pallet-staking-reward-curve = { version = "8.0.0" }
 pallet-staking-runtime-api = { default-features = false , version = "9.0.0" }
 frame-system = { default-features = false , version = "23.0.0" }
 frame-system-rpc-runtime-api = { default-features = false , version = "21.0.0" }

@@ -64,15 +64,12 @@ use primitives::{
 	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
 	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LOWEST_PUBLIC_ID,
-	PARACHAIN_KEY_TYPE_ID,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use sp_core::OpaqueMetadata;
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
-	create_runtime_str,
-	curve::PiecewiseLinear,
-	generic, impl_opaque_keys,
+	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT,
 		OpaqueKeys, SaturatedConversion, Verify,
@@ -503,22 +500,6 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type Score = sp_npos_elections::VoteWeight;
 }
 
-// TODO #6469: This shouldn't be static, but a lazily cached value, not built unless needed, and
-// re-built in case input parameters have changed. The `ideal_stake` should be determined by the
-// amount of parachain slots being bid on: this should be around `(75 - 25.min(slots / 4))%`.
-pallet_staking_reward_curve::build! {
-	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		// 3:2:1 staked : parachains : float.
-		// while there's no parachains, then this is 75% staked : 25% float.
-		ideal_stake: 0_750_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
-
 parameter_types! {
 	// Six sessions in an era (24 hours).
 	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
@@ -534,45 +515,38 @@ parameter_types! {
 		27,
 		"DOT_SLASH_DEFER_DURATION"
 	);
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 512;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	// 16
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 }
 
-/// Custom version of `runtime_commong::era_payout` somewhat tailored for Polkadot's crowdloan
-/// unlock history. The only tweak should be
-///
-/// ```diff
-/// - let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 200u64);
-/// + let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 300u64);
-/// ```
-///
-/// See <https://forum.polkadot.network/t/adjusting-polkadots-ideal-staking-rate-calculation/3897>.
-fn polkadot_era_payout(
+// Note: the `parameter_types!{ storage }` default values do not reflect on the runtime storage when
+// the runtime is upgraded. The defaults are *only* relevant before the first `set_storage()` call.
+// After that, the values in this configuration becomes a noop.
+parameter_types! {
+	storage MaxAnnualInflation: Perquintill = Perquintill::from_percent(10);
+	storage MinAnnualInflation: Perquintill = Perquintill::from_rational(25u64, 1000u64);
+	storage IdealStake: Perquintill = Perquintill::from_percent(50); // TODO: double-check this value.
+	storage IdealStakeFalloff: Perquintill = Perquintill::from_percent(5);
+}
+
+// TODO: move `runtime-common` to the fellowship runtimes and move this method there. Tracking
+// issue <https://github.com/polkadot-fellows/runtimes/issues/59>.
+fn era_payout(
 	total_staked: Balance,
 	total_stakable: Balance,
-	max_annual_inflation: Perquintill,
 	period_fraction: Perquintill,
-	auctioned_slots: u64,
 ) -> (Balance, Balance) {
 	use pallet_staking_reward_fn::compute_inflation;
 	use sp_runtime::traits::Saturating;
 
-	let min_annual_inflation = Perquintill::from_rational(25u64, 1000u64);
+	let max_annual_inflation = MaxAnnualInflation::get();
+	let min_annual_inflation = MinAnnualInflation::get();
 	let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
 
-	// 20% reserved for up to 60 slots.
-	let auction_proportion = Perquintill::from_rational(auctioned_slots.min(60), 300u64);
-
-	// Therefore the ideal amount at stake (as a percentage of total issuance) is 75% less the
-	// amount that we expect to be taken up with auctions.
-	let ideal_stake = Perquintill::from_percent(75).saturating_sub(auction_proportion);
-
 	let stake = Perquintill::from_rational(total_staked, total_stakable);
-	let falloff = Perquintill::from_percent(5);
-	let adjustment = compute_inflation(stake, ideal_stake, falloff);
+	let adjustment = compute_inflation(stake, IdealStake::get(), IdealStakeFalloff::get());
 	let staking_inflation =
 		min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
 
@@ -596,23 +570,12 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 		total_issuance: Balance,
 		era_duration_millis: u64,
 	) -> (Balance, Balance) {
-		// all para-ids that are not active.
-		let auctioned_slots = Paras::parachains()
-			.into_iter()
-			// all active para-ids that do not belong to a system or common good chain is the number
-			// of parachains that we should take into account for inflation.
-			.filter(|i| *i >= LOWEST_PUBLIC_ID)
-			.count() as u64;
-
-		const MAX_ANNUAL_INFLATION: Perquintill = Perquintill::from_percent(10);
 		const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-		polkadot_era_payout(
+		era_payout(
 			total_staked,
 			total_issuance,
-			MAX_ANNUAL_INFLATION,
 			Perquintill::from_rational(era_duration_millis, MILLISECONDS_PER_YEAR),
-			auctioned_slots,
 		)
 	}
 }
