@@ -818,6 +818,10 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 }
 
+impl pallet_temp_staking_fixer::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -1256,7 +1260,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -1781,6 +1786,9 @@ construct_runtime! {
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		IdentityMigrator: identity_migrator = 248,
+
+		// Temporary pallet to restore corrupted ledgers in staking.
+		TempStakingFixer: pallet_temp_staking_fixer = 250,
 	}
 }
 

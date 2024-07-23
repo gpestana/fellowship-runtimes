@@ -1,0 +1,28 @@
+[package]
+name = "pallet-temp-staking-fixer"
+version = "1.0.0"
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { workspace = true }
+sp-staking = { workspace = true }
+pallet-staking = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"log/std",
+	"scale-info/std",
+  "frame-support/std",
+	"frame-system/std",
+  "sp-staking/std",
+  "pallet-staking/std"
+]

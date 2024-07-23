@@ -67,6 +67,8 @@ pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 frame-support = { workspace = true }
 pallet-staking = { workspace = true }
+# temporary pallet to fix the corrupted Staking ledgers.
+pallet-temp-staking-fixer = { workspace = true }
 pallet-staking-reward-fn = { workspace = true }
 pallet-staking-reward-curve = { workspace = true }
 pallet-staking-runtime-api = { workspace = true }
