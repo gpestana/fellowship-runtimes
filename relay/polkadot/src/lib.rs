@@ -820,6 +820,7 @@ impl pallet_staking::Config for Runtime {
 
 impl pallet_temp_staking_fixer::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

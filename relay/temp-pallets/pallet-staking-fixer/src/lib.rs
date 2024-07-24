@@ -21,9 +21,9 @@
 
 use frame_support::traits::Currency;
 use frame_system::ensure_signed;
+use pallet_staking::WeightInfo;
 use sp_staking::StakingAccount;
 
-// Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -36,6 +36,9 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_staking::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -44,20 +47,26 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		// TODO
+		/// Ledger of `stash` has been recovered.
 		Restored { stash: T::AccountId },
+		/// Ledger of `stash` has been recovered. The resulting recoving ended up in unbonding and
+		/// the ledger to unstake.
 		RestoredUnstaked { stash: T::AccountId },
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// TODO
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(
+            <<T as pallet::Config>::WeightInfo>::restore_ledger() +
+            <<T as pallet::Config>::WeightInfo>::force_unstake(maybe_slashing_spans.unwrap_or_default())
+        )]
 		pub fn restore_ledger_temp(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 			maybe_slashing_spans: Option<u32>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
 			// calls `Staking::restore_ledger` as `Root`.
@@ -73,19 +82,26 @@ pub mod pallet {
 
 			// check if stash's free balance covers the current ledger's total amount. If not,
 			// force unstake the ledger.
-			if ledger.total > T::Currency::free_balance(&stash) {
+			let weight = if ledger.total > T::Currency::free_balance(&stash) {
+				let slashing_spans = maybe_slashing_spans.unwrap_or_default();
+
 				pallet_staking::Pallet::<T>::force_unstake(
 					RawOrigin::Root.into(),
 					stash.clone(),
-					maybe_slashing_spans.unwrap_or_default(),
+					slashing_spans,
 				)?;
 
 				Self::deposit_event(Event::<T>::RestoredUnstaked { stash });
-				Ok(())
+
+				<<T as pallet::Config>::WeightInfo>::restore_ledger() +
+					<<T as pallet::Config>::WeightInfo>::force_unstake(slashing_spans)
 			} else {
 				Self::deposit_event(Event::<T>::Restored { stash });
-				Ok(())
-			}
+
+				<<T as pallet::Config>::WeightInfo>::restore_ledger()
+			};
+
+			Ok(Some(weight).into())
 		}
 	}
 }
