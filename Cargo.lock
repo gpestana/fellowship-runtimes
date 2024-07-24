@@ -16121,6 +16121,7 @@ dependencies = [
  "pallet-society",
  "pallet-staking",
  "pallet-staking-runtime-api",
+ "pallet-temp-staking-fixer",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",

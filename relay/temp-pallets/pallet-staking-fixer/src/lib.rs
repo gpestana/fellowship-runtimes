@@ -70,11 +70,11 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Restores the state of a staking ledger that is in an inconsistent state.
 		///
-        /// This call functions as a proxy to `Staking::restore_ledger`, but exposes it to signed
-        /// origins. In addition, this call checks if, after the ledger has been successfully
-        /// restored, the ledger locks are higher or equal than the stash's free balance. If not,
-        /// it forces the unstake of the ledger.
-        ///
+		/// This call functions as a proxy to `Staking::restore_ledger`, but exposes it to signed
+		/// origins. In addition, this call checks if, after the ledger has been successfully
+		/// restored, the ledger locks are higher or equal than the stash's free balance. If not, it
+		/// forces the unstake of the ledger.
+		///
 		/// Safety note: Only ledgers associated `stash` that are corrupted will be mutated. Thus it
 		/// is safe to expose `Staking::restore_ledger` through the signed origin.
 		#[pallet::call_index(0)]
