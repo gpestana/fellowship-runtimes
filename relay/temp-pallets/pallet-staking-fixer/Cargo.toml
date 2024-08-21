@@ -13,6 +13,7 @@ codec = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true }
 sp-staking = { workspace = true }
+sp-std = { workspace = true }
 pallet-staking = { workspace = true }
 
 [features]
@@ -24,5 +25,6 @@ std = [
   "frame-support/std",
 	"frame-system/std",
   "sp-staking/std",
+  "sp-std/std",
   "pallet-staking/std"
 ]

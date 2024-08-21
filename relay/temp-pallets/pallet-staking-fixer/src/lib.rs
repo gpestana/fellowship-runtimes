@@ -29,6 +29,11 @@
 //! - Extra safety check: if the resulting restored ledger from `Staking::restore_ledger` has a
 //! larger total staked than the stash's free balance, the ledger is unstaked.
 //!
+//! A stash may be restored with `Call::restore_ledger` IFF:
+//! * It's account is whitelisted in `T::WhitelistedStashes` and;
+//! * The ledger associated with the stash needs to be restored (logic defined in the Staking
+//! pallet).
+//!
 //! Note: this pallet is temporary and can be removed when all the ledgers in Polkadot and Kusama
 //! are restored.
 
@@ -38,6 +43,7 @@ use frame_support::traits::Currency;
 use frame_system::ensure_signed;
 use pallet_staking::WeightInfo;
 use sp_staking::StakingAccount;
+use sp_std::vec::Vec;
 
 pub use pallet::*;
 
@@ -51,6 +57,9 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_staking::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// A list of stash accounts that may be restored.
+		type WhitelistedStashes: Get<Vec<Self::AccountId>>;
 	}
 
 	#[pallet::pallet]
@@ -64,6 +73,12 @@ pub mod pallet {
 		/// Ledger of `stash` has been recovered. The resulting recoving ended up in unbonding and
 		/// the ledger to unstake.
 		RestoredUnstaked { stash: T::AccountId },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Stash cannot be restored because it was not whitelisted as such.
+		StashToRestoreNotWhitelisted,
 	}
 
 	#[pallet::call]
@@ -88,6 +103,11 @@ pub mod pallet {
 			maybe_slashing_spans: Option<u32>,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
+
+			ensure!(
+				T::WhitelistedStashes::get().contains(&stash),
+				Error::<T>::StashToRestoreNotWhitelisted
+			);
 
 			// calls `Staking::restore_ledger` as `Root`.
 			pallet_staking::Pallet::<T>::restore_ledger(

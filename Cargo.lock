@@ -9199,6 +9199,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -10994,6 +10995,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "hex-literal",
  "log",
  "pallet-asset-rate",
  "pallet-authority-discovery",
