@@ -2119,8 +2119,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	//Migrations,
-	restore_corrupted_ledgers::Migrate<Runtime>,
+	Migrations,
 >;
 /// The payload being signed in the transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
