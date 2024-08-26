@@ -9189,6 +9189,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-temp-staking-fixer"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-staking",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-staking",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-timestamp"
 version = "28.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10981,6 +10995,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "hex-literal",
  "log",
  "pallet-asset-rate",
  "pallet-authority-discovery",
@@ -11018,6 +11033,7 @@ dependencies = [
  "pallet-staking-reward-fn",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
+ "pallet-temp-staking-fixer",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -16107,6 +16123,7 @@ dependencies = [
  "pallet-society",
  "pallet-staking",
  "pallet-staking-runtime-api",
+ "pallet-temp-staking-fixer",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
