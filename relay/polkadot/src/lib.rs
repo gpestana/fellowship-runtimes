@@ -826,6 +826,8 @@ parameter_types! {
 		hex_literal::hex!["a6379e16c5dab15e384c71024e3c6667356a5487127c291e61eed3d8d6b335dd"].into(),
 		// stash account 13SvkXXNbFJ74pHDrkEnUw6AE8TVkLRRkUm2CMXsQtd4ibwq
 		hex_literal::hex!["6c3e8acb9225c2a6d22539e2c268c8721b016be1558b4aad4bed220dfbf01fea"].into(),
+		// stash account 12YcbjN5cvqM63oK7WMhNtpTQhtCrrUr4ntzqqrJ4EijvDE8
+		hex_literal::hex!["4458ad5f0c082da64610607beb9d3164a77f1ef7964b7871c1de182ea7213783"].into(),
 	];
 }
 
